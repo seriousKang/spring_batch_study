@@ -3,10 +3,14 @@ package io.study.springbatch;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
+import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.core.Step;
+import org.springframework.batch.core.StepContribution;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.JobScope;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
+import org.springframework.batch.core.scope.context.ChunkContext;
+import org.springframework.batch.core.step.tasklet.Tasklet;
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.support.ListItemReader;
@@ -15,12 +19,16 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
+import java.util.Map;
+
+import static org.springframework.batch.repeat.RepeatStatus.*;
 
 @Slf4j
 @Configuration
 @RequiredArgsConstructor
-public class ChunkOrientedTaskletConfiguration {
+public class JobParameterConfiguration {
     private final JobBuilderFactory jobBuilderFactory;
     private final StepBuilderFactory stepBuilderFactory;
 
@@ -33,23 +41,25 @@ public class ChunkOrientedTaskletConfiguration {
     }
 
     @Bean
-    @JobScope
     public Step step1() {
         return stepBuilderFactory.get("step1")
-                .<String, String>chunk(4)
-                .reader(new ListItemReader<>(Arrays.asList("item1", "item2", "item3", "item4", "item5", "item6")))
-                .processor(new ItemProcessor<String, String>() {
+                .tasklet(new Tasklet() {
                     @Override
-                    public String process(String item) throws Exception {
-                        Thread.sleep(1000);
-                        return "my_" + item;
-                    }
-                })
-                .writer(new ItemWriter<String>() {
-                    @Override
-                    public void write(List<? extends String> items) throws Exception {
-                        log.info("----------------");
-                        items.forEach(item -> log.info("item = {}", item));
+                    public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) throws Exception {
+//                        JobParameters jobParameters = contribution.getStepExecution().getJobExecution().getJobParameters();
+//                        String name = jobParameters.getString("name");
+//                        Date date = jobParameters.getDate("date");
+//                        Long seq = jobParameters.getLong("seq");
+//                        Double score = jobParameters.getDouble("score");
+//                        log.info("name  = " + name);
+//                        log.info("date  = " + date);
+//                        log.info("seq   = " + seq);
+//                        log.info("score = " + score);
+
+                        Map<String, Object> jobParameters = chunkContext.getStepContext().getJobParameters();
+                        log.info("jobParameters = [{}]", jobParameters);
+
+                        return FINISHED;
                     }
                 })
                 .build();
@@ -60,7 +70,7 @@ public class ChunkOrientedTaskletConfiguration {
         return stepBuilderFactory.get("step2")
                 .tasklet(((contribution, chunkContext) -> {
                     log.info("step2 start!");
-                    return RepeatStatus.FINISHED;
+                    return FINISHED;
                 }))
                 .build();
     }
